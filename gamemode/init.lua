@@ -3,6 +3,34 @@ AddCSLuaFile( "shared.lua" )
 
 include( "shared.lua" )
 
+if !file.Exists( "DangerDropDerby", "DATA" ) then
+        file.CreateDir( "DangerDropDerby" )
+end
+
+if !file.Exists( "DangerDropDerby/Saves", "DATA" ) then
+        file.CreateDir( "DangerDropDerby/Saves" )
+end
+
+local PlayerMeta = FindMetaTable("Player")
+
+function PlayerMeta:SavePlayer()
+
+  local playerTable = {}
+
+  tbl.date = os.date("%A %m/%d/%y")
+
+  file.Write( "DangerDropDerby/Saves" ..self:SteamID64().. ".txt", util.TableToJSON( playerTable, true ) )
+
+end
+
+function Initialize_DDD()
+
+  -- Setup all needed network strings.
+  util.AddNetworkString("ddd_sendnewweapon")
+
+end
+hook.Add("Initialize", "initializing", Initialize_DDD)
+
 function GM:PlayerInitialSpawn( ply )
   ply:SetTeam( 1 ) --Add the player to Non-Combatants
 end
@@ -10,20 +38,28 @@ end
 function GM:PlayerLoadout( ply )
     
   if ply:Team() == 1 then
-    ply:Give( "weapon_physcannon" )
+    ply:Give( "weapon_physcannon" ) -- Temporary measure to show that proper team is joined.
   end
  
 end
 
-function DDD_GenerateWeapon()
+function PlayerMeta:TransmitWeapon( weapon )
+
+  net.Start("ddd_sendnewweapon")
+    net.WriteString( weapon )
+  net.Send( self )
+
+end
+
+function DDD_GenerateWeapon( ply )
 
   local weapRarity = DDD_DetermineRarity()
   local generatedWeapon = DDD_DetermineWeapon(weapRarity)
   
-  Entity( 1 ):PrintMessage( HUD_PRINTTALK, weapRarity .. generatedWeapon) --Temporary Printing for Showing Generated Weapons
+  ply:TransmitWeapon( weapRarity .. generatedWeapon )
 
 end
-concommand.Add("ddd_generateweapon", DDD_GenerateWeapon) --Make Console Command admin-only.
+concommand.Add("ddd_generateweapon", DDD_GenerateWeapon) --Make Console Command admin-only later.
 
 function DDD_DetermineRarity()
 
@@ -154,6 +190,7 @@ function DDD_DetermineSuperMods(rarity)
         currentMod = superWeaponModifiers[math.random(#superWeaponModifiers)]
       end
 
+      thirdMod = currentMod
       superMods = superMods .. currentMod
     end
 
